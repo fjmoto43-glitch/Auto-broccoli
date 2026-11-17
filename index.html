@@ -31,7 +31,65 @@ function packState(state){return [1,state.title,state.author,state.ranks.map(r=>
 function unpackState(data){if(!Array.isArray(data))return data;if(data[0]!==1)throw new Error('Unknown share format');return {title:data[1]||'',author:data[2]||'',ranks:(data[3]||[]).map(r=>({name:r[0],color:r[1],items:(r[2]||[]).map(text=>({id:id(),text}))})),pool:(data[4]||[]).map(text=>({id:id(),text}))}}
 $('share').onclick=async()=>{let raw=JSON.stringify(packState(s)),v;try{v=bytesToB64(await compressText(raw));$('url').value=location.origin+location.pathname+'?s='+v}catch{v=btoa(unescape(encodeURIComponent(raw))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');$('url').value=location.origin+location.pathname+'?share='+v}$('modal').classList.remove('hidden')};
 $('close').onclick=()=>$('modal').classList.add('hidden');$('copy').onclick=async()=>{try{await navigator.clipboard.writeText($('url').value);$('copy').textContent='コピーしました'}catch{$('url').select();document.execCommand('copy')}};
-$('png').onclick=()=>{let esc=x=>String(x).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));let measure=document.createElement('canvas').getContext('2d');measure.font='16px system-ui,sans-serif';let titleWidth=(measure.measureText(s.title||'').width||0)+60;let rowWidths=s.ranks.map(r=>{measure.font='16px system-ui,sans-serif';return 25+105+15+r.items.reduce((sum,it)=>sum+Math.max(75,measure.measureText(String(it.text)).width+24)+8,0)+20});let w=Math.ceil(Math.max(1100,titleWidth,...rowWidths));let rowH=90,h=75+s.ranks.length*rowH+25;let svg='<svg xmlns="http://www.w3.org/2000/svg" width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'"><rect width="100%" height="100%" fill="#f4f6fb"/><text x="25" y="48" font-size="30" font-weight="bold" fill="#172033">'+esc(s.title)+'</text>';s.ranks.forEach((r,i)=>{let y=75+i*rowH;svg+='<rect x="25" y="'+y+'" width="'+(w-50)+'" height="80" rx="8" fill="white" stroke="#dce2ec"/><rect x="25" y="'+y+'" width="105" height="80" rx="8" fill="'+esc(r.color)+'"/><text x="77" y="'+(y+48)+'" text-anchor="middle" font-size="23" font-weight="bold" fill="#172033">'+esc(r.name)+'</text>';let x=145;r.items.forEach(it=>{let label=String(it.text),ww=Math.max(75,measure.measureText(label).width+24);svg+='<rect x="'+x+'" y="'+(y+19)+'" width="'+ww+'" height="42" rx="7" fill="#f4f6fb" stroke="#dce2ec"/><text x="'+(x+10)+'" y="'+(y+45)+'" font-size="16" fill="#172033">'+esc(label)+'</text>';x+=ww+8})});svg+='</svg>';let u=URL.createObjectURL(new Blob([svg],{type:'image/svg+xml'})),im=new Image();im.onload=()=>{let scale=Math.min(2,16000/w,16000/h),c=document.createElement('canvas');c.width=Math.ceil(w*scale);c.height=Math.ceil(h*scale);let ctx=c.getContext('2d');ctx.scale(scale,scale);ctx.drawImage(im,0,0);let a=document.createElement('a');a.href=c.toDataURL('image/png');a.download='tierboard.png';a.click();URL.revokeObjectURL(u)};im.onerror=()=>{URL.revokeObjectURL(u);alert('PNGの生成に失敗しました。アイテム数を減らして再度お試しください。')};im.src=u}
+$('png').onclick=()=>{
+ let esc=x=>String(x).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+ let measure=document.createElement('canvas').getContext('2d');
+ measure.font='16px system-ui,sans-serif';
+ const W=1100,left=145,right=25,gap=7,contentW=W-left-right;
+ let y=75;
+ let svg='<svg xmlns="http://www.w3.org/2000/svg" width="'+W+'" height="1000" viewBox="0 0 '+W+' 1000"><rect width="100%" height="100%" fill="#f4f6fb"/><text x="25" y="48" font-size="30" font-weight="bold" fill="#172033">'+esc(s.title)+'</text>';
+ let rows=[];
+ s.ranks.forEach(r=>{
+   let lines=[];
+   let rowX=left,rowH=0,rowItems=[];
+   const pushRow=()=>{if(rowItems.length){lines.push({items:rowItems,height:rowH});rowItems=[];rowX=left;rowH=0}};
+   r.items.forEach(it=>{
+     let label=String(it.text),wrapped=[];
+     label.split(/\r?\n/).forEach(part=>{
+       if(part===''){wrapped.push('');return}
+       let line='';
+       for(const ch of part){
+         if(line&&measure.measureText(line+ch).width>contentW-24){wrapped.push(line);line=ch}
+         else line+=ch;
+       }
+       wrapped.push(line);
+     });
+     let textW=Math.max(1,...wrapped.map(line=>measure.measureText(line).width));
+     let chipW=Math.min(contentW,Math.max(75,textW+24));
+     let chipH=Math.max(42,wrapped.length*20+16);
+     if(rowItems.length&&rowX+chipW>W-right)pushRow();
+     rowItems.push({x:rowX,w:chipW,h:chipH,lines:wrapped});
+     rowX+=chipW+gap;rowH=Math.max(rowH,chipH);
+   });
+   pushRow();
+   let rowHeight=Math.max(80,16+lines.reduce((sum,line)=>sum+line.height,0)+Math.max(0,lines.length-1)*gap);
+   rows.push({rank:r,lines,height:rowHeight,y});
+   y+=rowHeight+10;
+ });
+ rows.forEach(({rank,lines,height,y:ry})=>{
+   svg+='<rect x="25" y="'+ry+'" width="'+(W-50)+'" height="'+height+'" rx="8" fill="white" stroke="#dce2ec"/><rect x="25" y="'+ry+'" width="105" height="'+height+'" rx="8" fill="'+esc(rank.color)+'"/><text x="77" y="'+(ry+height/2+8)+'" text-anchor="middle" font-size="23" font-weight="bold" fill="#172033">'+esc(rank.name)+'</text>';
+   let cy=ry+8;
+   lines.forEach(line=>{
+     line.items.forEach(item=>{
+       svg+='<rect x="'+item.x+'" y="'+cy+'" width="'+item.w+'" height="'+item.h+'" rx="7" fill="#f4f6fb" stroke="#dce2ec"/>';
+       item.lines.forEach((txt,i)=>{svg+='<text x="'+(item.x+10)+'" y="'+(cy+25+i*20)+'" font-size="16" fill="#172033">'+esc(txt)+'</text>'});
+     });
+     cy+=line.height+gap;
+   });
+ });
+ let h=Math.max(100,y+15);
+ svg=svg.replace('height="1000" viewBox="0 0 1100 1000"','height="'+h+'" viewBox="0 0 1100 '+h+'"');
+ svg+='</svg>';
+ let u=URL.createObjectURL(new Blob([svg],{type:'image/svg+xml'})),im=new Image();
+ im.onload=()=>{
+   let scale=Math.min(2,16000/W,16000/h),c=document.createElement('canvas');
+   c.width=Math.ceil(W*scale);c.height=Math.ceil(h*scale);
+   let ctx=c.getContext('2d');ctx.scale(scale,scale);ctx.drawImage(im,0,0);
+   let a=document.createElement('a');a.href=c.toDataURL('image/png');a.download='tierboard.png';a.click();URL.revokeObjectURL(u)
+ };
+ im.onerror=()=>{URL.revokeObjectURL(u);alert('PNGの生成に失敗しました。アイテム数を減らして再度お試しください。')};
+ im.src=u
+}
 async function initialize(){try{let params=new URLSearchParams(location.search),compressed=params.get('s'),legacy=params.get('share');if(compressed){s=unpackState(JSON.parse(await decompressText(b64ToBytes(compressed))))}else if(legacy){s=unpackState(JSON.parse(decodeURIComponent(escape(atob(legacy.replace(/-/g,'+').replace(/_/g,'/'))))))}else if(localStorage.getItem('tierboard'))s=JSON.parse(localStorage.getItem('tierboard'))}catch{try{if(localStorage.getItem('tierboard'))s=JSON.parse(localStorage.getItem('tierboard'))}catch{}}history.replaceState({},'',location.pathname);render();save()}
 initialize();
 </script></body></html>
