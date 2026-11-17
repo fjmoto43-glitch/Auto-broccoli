@@ -55,7 +55,7 @@ $('png').onclick=()=>{
        wrapped.push(line);
      });
      let textW=Math.max(1,...wrapped.map(line=>measure.measureText(line).width));
-     let chipW=Math.min(contentW,Math.max(75,textW+24));
+     let chipW=Math.min(contentW,Math.max(44,textW+24));
      let chipH=Math.max(42,wrapped.length*20+16);
      if(rowItems.length&&rowX+chipW>W-right)pushRow();
      rowItems.push({x:rowX,w:chipW,h:chipH,lines:wrapped});
@@ -67,12 +67,12 @@ $('png').onclick=()=>{
    y+=rowHeight+10;
  });
  rows.forEach(({rank,lines,height,y:ry})=>{
-   svg+='<rect x="25" y="'+ry+'" width="'+(W-50)+'" height="'+height+'" rx="8" fill="white" stroke="#dce2ec"/><rect x="25" y="'+ry+'" width="105" height="'+height+'" rx="8" fill="'+esc(rank.color)+'"/><text x="77" y="'+(ry+height/2+8)+'" text-anchor="middle" font-size="23" font-weight="bold" fill="#172033">'+esc(rank.name)+'</text>';
+   svg+='<rect x="25" y="'+ry+'" width="'+(W-50)+'" height="'+height+'" rx="8" fill="white" stroke="#dce2ec"/><rect x="25" y="'+ry+'" width="105" height="'+height+'" rx="8" fill="'+esc(rank.color)+'"/><text x="77" y="'+(ry+height/2+8)+'" text-anchor="middle" font-size="23" font-weight="bold" font-family="system-ui,sans-serif" fill="#172033">'+esc(rank.name)+'</text>';
    let cy=ry+8;
    lines.forEach(line=>{
      line.items.forEach(item=>{
        svg+='<rect x="'+item.x+'" y="'+cy+'" width="'+item.w+'" height="'+item.h+'" rx="7" fill="#f4f6fb" stroke="#dce2ec"/>';
-       item.lines.forEach((txt,i)=>{svg+='<text x="'+(item.x+10)+'" y="'+(cy+25+i*20)+'" font-size="16" fill="#172033">'+esc(txt)+'</text>'});
+       item.lines.forEach((txt,i)=>{svg+='<text x="'+(item.x+10)+'" y="'+(cy+25+i*20)+'" font-size="16" font-family="system-ui,sans-serif" fill="#172033">'+esc(txt)+'</text>'});
      });
      cy+=line.height+gap;
    });
