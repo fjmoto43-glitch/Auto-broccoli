@@ -33,8 +33,8 @@ $('share').onclick=async()=>{let raw=JSON.stringify(packState(s)),v;try{v=bytesT
 $('close').onclick=()=>$('modal').classList.add('hidden');$('copy').onclick=async()=>{try{await navigator.clipboard.writeText($('url').value);$('copy').textContent='コピーしました'}catch{$('url').select();document.execCommand('copy')}};
 $('png').onclick=()=>{
  let esc=x=>String(x).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
- let measure=document.createElement('canvas').getContext('2d');
- measure.font='16px system-ui,sans-serif';
+ const glyphWidth=ch=>{const cp=ch.codePointAt(0);if(/\\s/.test(ch))return 5;if(cp>=0x2e80||cp>=0x1f000)return 16;if(/[ilI.,'!:;|]/.test(ch))return 5;if(/[MW@#%&]/.test(ch))return 14;if(/[A-Z]/.test(ch))return 11;return 9};
+ const textWidth=value=>Array.from(value).reduce((sum,ch)=>sum+glyphWidth(ch),0);
  const W=1100,left=145,right=25,gap=7,contentW=W-left-right;
  let y=75;
  let svg='<svg xmlns="http://www.w3.org/2000/svg" width="'+W+'" height="1000" viewBox="0 0 '+W+' 1000"><rect width="100%" height="100%" fill="#f4f6fb"/><text x="25" y="48" font-size="30" font-weight="bold" fill="#172033">'+esc(s.title)+'</text>';
@@ -49,12 +49,12 @@ $('png').onclick=()=>{
        if(part===''){wrapped.push('');return}
        let line='';
        for(const ch of part){
-         if(line&&measure.measureText(line+ch).width>contentW-24){wrapped.push(line);line=ch}
+         if(line&&textWidth(line+ch)>contentW-24){wrapped.push(line);line=ch}
          else line+=ch;
        }
        wrapped.push(line);
      });
-     let textW=Math.max(1,...wrapped.map(line=>measure.measureText(line).width));
+     let textW=Math.max(1,...wrapped.map(textWidth));
      let chipW=Math.min(contentW,Math.max(44,textW+24));
      let chipH=Math.max(42,wrapped.length*20+16);
      if(rowItems.length&&rowX+chipW>W-right)pushRow();
